@@ -5,5 +5,3 @@ all:
 clean:
 	cd build/
 	rm NORSE.iso /iso/boot/kernel
-	cd ../src
-	make clean

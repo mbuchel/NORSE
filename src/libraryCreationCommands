@@ -1,0 +1,2 @@
+x86_64-redhat-linux-gcc -c -fPIC -o object.o object.c
+x86_64-redhat-linux-gcc -shared -fPIC -Wl,-soname,nameoflib object.o object2.o -o mylib.so
