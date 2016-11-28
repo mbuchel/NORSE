@@ -7,11 +7,17 @@ int memcmp(const void* aptr, const void* bptr, size_t size)
 	const unsigned char* b = (const unsigned char*) bptr;
 
 	for (i = 0; i < size; ++i) {
-		if (a[i] < b[i])
-			return -1;
-		else if (b[i] < a[i])
-			return 1;
+		if (a[i] < b[i]) {
+			i = -1;
+			goto exit_memcmp;
+		} else if (b[i] < a[i]) {
+			i = 1;
+			goto exit_memcmp;
+		}
 	}
 
-	return 0;
+	i = 0;
+
+exit_memcmp:
+	return i;
 }
