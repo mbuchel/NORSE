@@ -1,33 +1,31 @@
-ENTRY(bootstrap)
-SECTIONS
-{
-	.text 0x100000 : {
-		*(.multiboot)
-		code = .;
+ENTRY(_start)
+
+SECTIONS {
+	. = 1M;
+	
+	.text : AT(ADDR(.text) - 1M) {
 		_code = .;
-		__code = .;
 		*(.text)
+		*(.rodata*)
 		. = ALIGN(4096);
 	}
 
-	.data : {
-/*		data =.;
+	.data : AT(ADDR(.data) - 1M) {
 		_data = .;
-		__data = .;*/
 		*(.data)
-		*(.rodata)
 		. = ALIGN(4096);
 	}
 
-	.bss : {
-		bss = .;
+	.bss : AT(ADDR(.bss) - 1M) {
 		_bss = .;
-		__bss = .;
 		*(.bss)
+		*(COMMON)
 		. = ALIGN(4096);
 	}
 
-	end = .;
 	_end = .;
-	__end = .;
+
+	/DISCARD/ : {
+		*(.comment)
+	}
 }

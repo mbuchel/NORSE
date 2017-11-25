@@ -9,13 +9,23 @@ ARCH := x86_64
 # Kernel name
 KERNEL := build/norse-$(NAME).elf
 
+# Special stuff
+DEFS := -DNAME="\"$(NAME)\"" -DVERSION="\"$(VERSION)\""
+WARN := -Wall -Wextra #-Werror
+EXTR := -O0 -ffreestanding -lgcc
+
 # Normal C stuff
-CC := $(PREFIX)-gcc
-CFLAGS := -m32 -std=gnu99 -O3 -ffreestanding -c -Wall -Wextra -I include/ -D __C__
 AS := $(PREFIX)-gcc
-ASFLAGS := -m32 -O3 -ffreestanding -c -Wall -Wextra -I include/ -D __ASM__
+ASFLAGS := -c -I include/ -D __ASM__ $(DEFS) $(WARN) $(EXTR)
+
+CC := $(PREFIX)-gcc
+CFLAGS := -std=gnu99 -c -I include/ -D __C__ $(DEFS) $(WARN) $(EXTR)
+
 LD := $(PREFIX)-gcc
-LDFLAGS := -m32 -nostdlib -ffreestanding -O3 -Wl,--build-id=none
+LDFLAGS := -nostdlib -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -Wl,--build-id=none $(WARN) $(EXTR)
+
+ELF_COPY := $(ARCH)-linux-gnu-objcopy
+ELF_FLAGS := -O elf32-i386
 
 # Stuff for os
 GRUB_MKRESCUE := grub2-mkrescue
@@ -27,19 +37,42 @@ INITRD_CT := $(filter-out $(INITRD_RM), $(shell cd $(GENINITRD);find -type f))
 GENINITRD_AGRS := $(foreach file, $(INITRD_CT), $(patsubst ./%,%,$(file)) $(patsubst ./%,%,$(file)))
 INITRD := initrd.img
 
-.PHONY: all clean debug iso
+OBJS := build/$(ARCH)/boot.S.o build/$(ARCH)/gdt.c.o build/$(ARCH)/paging.S.o
 
-all:
-	@echo "Compiling Kernel Version: $(VERSION), Name: $(NAME)"
+all: $(KERNEL)
+
+init:
 	@mkdir -p build/$(ARCH)/
 	@mkdir -p build/core/
-	@$(AS) -c src/$(ARCH)/*.S $(ASFLAGS)
-	@$(CC) -c src/$(ARCH)/*.c $(CFLAGS)
-	@mv *.o build/$(ARCH)/
-#	@$(AS) -c src/core/*.S $(ASFLAGS)
-	@$(CC) -c src/core/*.c $(CFLAGS)
-	@mv *.o build/core/
-	@$(LD) -T src/$(ARCH)/link.ld build/*/*.o $(LDFLAGS) -o $(KERNEL)
+	@mkdir -p build/libc/
+
+build/$(ARCH)/%.S.o: src/$(ARCH)/%.S
+	@echo "[AS] Compiling $?"
+	@$(AS) $(ASFLAGS) $? -o $@
+
+build/$(ARCH)/%.c.o: src/$(ARCH)/%.c
+	@echo "[CC] Compiling $?"
+	@$(CC) $(CFLAGS) $? -o $@
+
+build/core/%.S.o: src/core/%.S
+	@echo "[AS] Compiling $?"
+	@$(AS) $(ASFLAGS) $? -o $@
+
+build/core/%.c.o: src/core/%.c
+	@echo "[CC] Compiling $?"
+	@$(CC) $(CFLAGS) $? -o $@
+
+build/libc/%.S.o: src/libc/%.S
+	@echo "[AS] Compiling $?"
+	@$(AS) $(ASFLAGS) $? -o $@
+
+build/libc/%.c.o: src/libc/%.c
+	@echo "[CC] Compiling $?"
+	@$(CC) $(CFLAGS) $? -o $@
+
+$(KERNEL): $(OBJS)
+	@echo "[LD] Linking Kernel: $(VERSION), Name: $(NAME)"
+	@$(LD) -T src/$(ARCH)/link.ld $(OBJS) $(LDFLAGS) -o $(KERNEL)64
 	@echo "Compiled Kernel Version: $(VERSION), Name: $(NAME)"
 
 iso:
@@ -48,7 +81,8 @@ iso:
 	@$(CC) $(GENINITRD)/make_initrd.c -o $(GENINITRD)/make_initrd
 	@cd $(GENINITRD);./make_initrd $(GENINITRD_ARGS)
 	@cp $(GENINITRD)/$(INITRD) build/iso/boot
-	@cp $(KERNEL) build/iso/boot/norse.elf
+	@$(ELF_COPY) $(KERNEL)64 $(ELF_FLAGS) $(KERNEL)32
+	@cp $(KERNEL)32 build/iso/boot/norse.elf
 	@cp grub.cfg build/iso/boot/grub/grub.cfg
 	@cd build && $(GRUB_MKRESCUE) -o norse-$(NAME).iso iso
 
@@ -60,3 +94,4 @@ debug:
 clean:
 	@rm -rf build/*
 	@echo "Made clean"
+	@make -s init
