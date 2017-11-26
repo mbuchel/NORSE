@@ -7,11 +7,11 @@ PREFIX := x86_64-redhat-linux
 ARCH := x86_64
 
 # Kernel name
-KERNEL := build/norse-$(NAME).elf
+KERNEL := bin/norse-$(NAME).elf
 
 # Special stuff
 DEFS := -DNAME="\"$(NAME)\"" -DVERSION="\"$(VERSION)\""
-WARN := -Wall -Wextra #-Werror
+WARN := -Wall -Wextra -Wno-pointer-to-int-cast #-Werror
 EXTR := -O0 -ffreestanding -lgcc
 
 # Normal C stuff
@@ -24,7 +24,7 @@ CFLAGS := -std=gnu99 -c -I include/ -D __C__ $(DEFS) $(WARN) $(EXTR)
 LD := $(PREFIX)-gcc
 LDFLAGS := -nostdlib -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -Wl,--build-id=none $(WARN) $(EXTR)
 
-ELF_COPY := $(ARCH)-linux-gnu-objcopy
+ELF_COPY := objcopy
 ELF_FLAGS := -O elf32-i386
 
 # Stuff for os
@@ -37,7 +37,8 @@ INITRD_CT := $(filter-out $(INITRD_RM), $(shell cd $(GENINITRD);find -type f))
 GENINITRD_AGRS := $(foreach file, $(INITRD_CT), $(patsubst ./%,%,$(file)) $(patsubst ./%,%,$(file)))
 INITRD := initrd.img
 
-OBJS := build/$(ARCH)/boot.S.o build/$(ARCH)/gdt.c.o build/$(ARCH)/paging.S.o
+OBJS := build/$(ARCH)/boot.S.o build/$(ARCH)/paging.S.o build/$(ARCH)/idt.S.o build/$(ARCH)/lock.S.o build/$(ARCH)/gdt.c.o build/$(ARCH)/idt.c.o
+OBJS += build/core/kernel.c.o
 
 all: $(KERNEL)
 
@@ -45,6 +46,7 @@ init:
 	@mkdir -p build/$(ARCH)/
 	@mkdir -p build/core/
 	@mkdir -p build/libc/
+	@mkdir -p bin/
 
 build/$(ARCH)/%.S.o: src/$(ARCH)/%.S
 	@echo "[AS] Compiling $?"
@@ -84,7 +86,8 @@ iso:
 	@$(ELF_COPY) $(KERNEL)64 $(ELF_FLAGS) $(KERNEL)32
 	@cp $(KERNEL)32 build/iso/boot/norse.elf
 	@cp grub.cfg build/iso/boot/grub/grub.cfg
-	@cd build && $(GRUB_MKRESCUE) -o norse-$(NAME).iso iso
+	@cd build && $(GRUB_MKRESCUE) -o ../bin/norse-$(NAME).iso iso
+	@echo "Made iso file"
 
 debug:
 	CFLAGS += -g -fsanitize=undefined
@@ -92,6 +95,6 @@ debug:
 	all
 
 clean:
-	@rm -rf build/*
+	@rm -rf build/* bin/*
 	@echo "Made clean"
 	@make -s init
