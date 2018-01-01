@@ -1,7 +1,7 @@
 ENTRY(_start)
 
 SECTIONS {
-	. = 1M;
+	. = 0x000100000;
 	
 	.text : AT(ADDR(.text) - 1M) {
 		_code = .;

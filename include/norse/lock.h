@@ -1,14 +1,22 @@
 #ifndef LOCK_H
 #define LOCK_H
 
-#include <stdint.h>
+#include <norse/panic.h>
+#include <norse/types.h>
 
-#define SPINLOCK_INIT 0
+#define LOCK_CLR {0, false}
 
-typedef uint8_t spinlock_t;
+struct lock {
+	atomic_uint readers;
+	atomic_bool writer;
+};
 
-void acquire_spinlock(spinlock_t *s);
+void lock_clr(struct lock *lock);
 
-uint8_t release_spinlock(spinlock_t *s);
+void lock_acquire_reader(struct lock *lock);
+void lock_release_reader(struct lock *lock);
+
+void lock_acquire_writer(struct lock *lock);
+void lock_release_writer(struct lock *lock);
 
 #endif

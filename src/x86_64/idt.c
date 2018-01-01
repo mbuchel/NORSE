@@ -44,12 +44,6 @@ static struct idt_ptr {
 	uint32_t base;
 } __attribute__((packed)) idtp;
 
-// Protects the INTERRUPT_DISPATCH
-static spinlock_t idt_dispatch_lock = SPINLOCK_INIT;
-
-// Array of interrupts
-static isr_f INTERRUPT_DISPATCH[IDT_SIZE] = {0};
-
 extern void idt_load(struct idt_ptr);
 
 extern void serve_interrupt();
@@ -90,6 +84,15 @@ extern void isr32();
 extern void isr33();
 extern void isr34();
 
+// Array of interrupts
+static isr_f INTERRUPT_DISPATCH[IDT_SIZE] = {
+	isr0, isr1, isr2, isr3, isr4, isr5, isr6, isr7,
+	isr8, isr9, isr10, isr11, isr12, isr13, isr14,
+	isr15, isr16, isr17, isr18, isr19, isr20, isr21,
+	isr21, isr22, isr23, isr24, isr25, isr26, isr27,
+	isr28, isr29, isr30, isr31, isr32, isr33, isr34
+};
+
 /*
  * idt_set - sets an entry in the INTERRUPT_DISPATCH
  * @num - number of interrupt
@@ -97,7 +100,7 @@ extern void isr34();
  * @sel - gdt condition for interrupt
  * @flags - flags that trigger
  */
-static void idt_set(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags)
+static void idt_set(uint8_t num, uintptr_t base, uint16_t sel, uint8_t flags)
 {
 	idt[num].base_lo = base & 0xFFFF;
 	idt[num].base_hi = (base >> 0x10) & 0xFFFF;
@@ -107,78 +110,20 @@ static void idt_set(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags)
 }
 
 /*
- * install_interrupt - installs the interrupt function
- * @num - number for the interrupt
- * @func - function for interrupt
- *
- * returns -1 if an interrupt is already installed
- */
-int install_interrupt(const uint8_t num, isr_f func)
-{
-	int ret = 0;
-
-	acquire_spinlock(&idt_dispatch_lock);
-	if (INTERRUPT_DISPATCH[num] != NULL)
-		ret = -1;
-	else
-		INTERRUPT_DISPATCH[num] = func;
-	release_spinlock(&idt_dispatch_lock);
-
-	return ret;
-}
-
-/*
  * init_interrupts - inits the interrupt table
  *
  * NOTE: there are 2 PICs a master and slave and
  * each has a dedicated I/O port, interrupts 0-31
  * are CPU exceptions. The main interrupts I am
  * using are 32 (programmable timer) and 33 (keyboard).
- *
- * WARNING: there is a warning here due to cast to integer
- * the pointer for the function has to be a 32 bit number as
- * according to the intel manual volume 3, chapter 6
  */
 void init_interrupts()
 {
 	idtp.limit = (sizeof(struct idt_entry) * IDT_SIZE) - 1;
-	idtp.base = (uint32_t) &idt;
+	idtp.base = (uintptr_t) &idt;
 
-	idt_set(0, (uint32_t)isr0, 0x08, 0x8e);
-	idt_set(1, (uint32_t)isr1, 0x08, 0x8e);
-	idt_set(2, (uint32_t)isr2, 0x08, 0x8e);
-	idt_set(3, (uint32_t)isr3, 0x08, 0x8e);
-	idt_set(4, (uint32_t)isr4, 0x08, 0x8e);
-	idt_set(5, (uint32_t)isr5, 0x08, 0x8e);
-	idt_set(6, (uint32_t)isr6, 0x08, 0x8e);
-	idt_set(7, (uint32_t)isr7, 0x08, 0x8e);
-	idt_set(8, (uint32_t)isr8, 0x08, 0x8e);
-	idt_set(9, (uint32_t)isr9, 0x08, 0x8e);
-	idt_set(10, (uint32_t)isr10, 0x08, 0x8e);
-	idt_set(11, (uint32_t)isr11, 0x08, 0x8e);
-	idt_set(12, (uint32_t)isr12, 0x08, 0x8e);
-	idt_set(13, (uint32_t)isr13, 0x08, 0x8e);
-	idt_set(14, (uint32_t)isr14, 0x08, 0x8e);
-	idt_set(15, (uint32_t)isr15, 0x08, 0x8e);
-	idt_set(16, (uint32_t)isr16, 0x08, 0x8e);
-	idt_set(17, (uint32_t)isr17, 0x08, 0x8e);
-	idt_set(18, (uint32_t)isr18, 0x08, 0x8e);
-	idt_set(19, (uint32_t)isr19, 0x08, 0x8e);
-	idt_set(20, (uint32_t)isr20, 0x08, 0x8e);
-	idt_set(21, (uint32_t)isr21, 0x08, 0x8e);
-	idt_set(22, (uint32_t)isr22, 0x08, 0x8e);
-	idt_set(23, (uint32_t)isr23, 0x08, 0x8e);
-	idt_set(24, (uint32_t)isr24, 0x08, 0x8e);
-	idt_set(25, (uint32_t)isr25, 0x08, 0x8e);
-	idt_set(26, (uint32_t)isr26, 0x08, 0x8e);
-	idt_set(27, (uint32_t)isr27, 0x08, 0x8e);
-	idt_set(28, (uint32_t)isr28, 0x08, 0x8e);
-	idt_set(29, (uint32_t)isr29, 0x08, 0x8e);
-	idt_set(30, (uint32_t)isr30, 0x08, 0x8e);
-	idt_set(31, (uint32_t)isr31, 0x08, 0x8e);
-	idt_set(32, (uint32_t)isr32, 0x08, 0x8e);
-	idt_set(33, (uint32_t)isr33, 0x08, 0x8e);
-	idt_set(34, (uint32_t)isr34, 0x08, 0x8e);
+	for (uint16_t i = 0; INTERRUPT_DISPATCH[i] != NULL; ++i)
+		idt_set(i, (uintptr_t) INTERRUPT_DISPATCH[i], 0x08, 0x8E);
 
 	// ICW1 - begin init
 	write_port(PIC_MASTER_CTRL, 0x11);
@@ -209,7 +154,27 @@ void init_interrupts()
  */
 void common_interrupt_handler(struct cpu_state r)
 {
-	if (r.int_no < IDT_SIZE && INTERRUPT_DISPATCH[r.int_no] != NULL) {
+	if (r.int_no < IDT_SIZE && INTERRUPT_DISPATCH[r.int_no] != NULL)
 		INTERRUPT_DISPATCH[r.int_no](&r);
-	}
+}
+
+/*
+ * interrupt_register_handler - registers an interrupt
+ * @irq_num - number of interrupt
+ * @handler - handler to set
+ */
+void interrupt_register_handler(size_t irq_num, isr_f handler)
+{
+	if (irq_num < IDT_SIZE && INTERRUPT_DISPATCH[irq_num] == NULL)
+		INTERRUPT_DISPATCH[irq_num] = handler;
+}
+
+/*
+ * interrupt_unregister_handler - unregisters an interrupt
+ * @irq_num - number of interrupt
+ */
+void interrupt_unregister_handler(size_t irq_num)
+{
+	if (irq_num < IDT_SIZE && INTERRUPT_DISPATCH[irq_num] == NULL)
+		INTERRUPT_DISPATCH[irq_num] = NULL;
 }

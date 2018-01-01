@@ -20,11 +20,11 @@ struct cpu_state {
 typedef void (*isr_f)(struct cpu_state *);
 
 void init_interrupts();
+void interrupt_register_handler(size_t irq_num, isr_f handler);
+void interrupt_unregister_handler(size_t irq_num);
 
-int install_interrupt(const uint8_t num, isr_f func);
-
-extern void disable_interrupts();
-extern void enable_interrupts();
-extern void halt();
+void disable_interrupts();
+void enable_interrupts();
+void halt();
 
 #endif

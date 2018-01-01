@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdarg.h>
 
@@ -17,11 +18,10 @@ enum status {
 	ERROR_NO_MEM,
 	ERROR_INVALID,
 	ERROR_PERM,
-	ERROR_PRES
+	ERROR_PRES,
+	ERROR_ABSENT,
+	ERROR_FULL,
+	ERROR_EMPTY
 };
-
-#define no_return __attribute__((no_return))
-#define pack __attribute__((packed))
-#define unused __attribute__((unused))
 
 #endif
