@@ -1,31 +1,45 @@
 ENTRY(_start)
 
-SECTIONS {
-	. = 0x000100000;
-	
-	.text : AT(ADDR(.text) - 1M) {
-		_code = .;
+SECTIONS
+{
+	. = 0xFFFFFFFF80000000;
+
+	.text : AT(ADDR(.text) - 0xFFFFFFFF80000000) {
+		__kernel_start = .;
+		__text_start = .;
 		*(.text)
 		*(.rodata*)
 		. = ALIGN(4096);
 	}
 
-	.data : AT(ADDR(.data) - 1M) {
-		_data = .;
+	.text : AT(1M) {
+		__kernel_start = .;
+		__text_start = .;
+		*(.text)
+	}
+
+	.data BLOCK(4K) : ALIGN(4K) {
+		__text_end = .;
+		__data_start = .;
 		*(.data)
-		. = ALIGN(4096);
+		PROVIDE(kernel_symbol_table_start = .);
+		PROVIDE(kernel_symbol_table_end = .);
 	}
 
-	.bss : AT(ADDR(.bss) - 1M) {
-		_bss = .;
+	.rodata BLOCK(4K) : ALIGN(4K) {
+		__data_end = .;
+		__rodata_start = .;
+		*(.rodata)
+	}
+
+	.bss BLOCK(4K) : ALIGN(4K) {
+		__bss_start = .;
+		__rodata_end = .;
 		*(.bss)
-		*(COMMON)
-		. = ALIGN(4096);
+		*(.COMMON)
 	}
 
-	_end = .;
-
-	/DISCARD/ : {
-		*(.comment)
-	}
+	. = ALIGN(4K);
+	__bss_end = .;
+	__kernel_end = .;
 }

@@ -39,14 +39,18 @@ static size_t term_col;
 static uint8_t clear_entry;
 static uint8_t term_color;
 
-static uint16_t *term_buf;
+static volatile uint16_t *term_buf;
 
 /*
  * vga_init - initializes the vga screen
  */
 void vga_init()
 {
-	const char *welcome = "Welcome to " NAME "\n\tVersion: " VERSION "\n\n>";
+	const char *welcome[] = {
+		"Welcome to ", NAME, "\n\tVersion: ",
+		VERSION, "\n\n>"
+	};
+
 	term_row = 0;
 	term_col = 0;
 	term_color = vga_entry_color(RED, BLACK);
@@ -60,7 +64,11 @@ void vga_init()
 		}
 	}
 
-	vga_put(welcome);
+	vga_put(welcome[0]);
+	vga_put(welcome[1]);
+	vga_put(welcome[2]);
+	vga_put(welcome[3]);
+	vga_put(welcome[4]);
 }
 
 /*

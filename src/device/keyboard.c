@@ -48,9 +48,8 @@ struct file keyboard = {
 
 /*
  * keyboard_handle - handles keyboard input
- * @r - unused
  */
-static void keyboard_handle(struct cpu_state *r __attribute__((unused)))
+void keyboard_handle()
 {
 	static bool shift = false;
 	uint8_t status_port;

@@ -1,6 +1,7 @@
 #include <device/keyboard.h>
 #include <device/vga.h>
 #include <norse/cpu.h>
+#include <norse/file.h>
 
 /*
  * kernel_main - main function
@@ -9,8 +10,9 @@
 void kernel_main(void *multiboot __attribute__((unused)))
 {
 	init_interrupts();
-	vga_init();
-	keyboard_init();
+	file_system_init();
+	//vga_init();
+	//keyboard_init();
 
 	while (1);
 }

@@ -9,37 +9,32 @@
 
 .section .bss, "aw", @nobits
 	.align SMALL_PAGE
+
+.global init_pl4
 init_pl4:
 	.skip SMALL_PAGE
+
+.global init_pl3
 init_pl3:
 	.skip SMALL_PAGE
+
+.global init_pl2
 init_pl2:
 	.skip SMALL_PAGE
-init_pl1_a:
-	.skip SMALL_PAGE
-init_pl1_b:
-	.skip SMALL_PAGE
-frac_pl3:
-	.skip SMALL_PAGE
-frac_pl2:
-	.skip SMALL_PAGE
-frac_pl1:
-	.skip SMALL_PAGE
-physpm13:
+
+.global init_pl1
+init_pl1:
 	.skip SMALL_PAGE
 
 .global slab_higher_half
 slab_higher_half:
 	.skip SMALL_PAGE
 
-.global slab_lower_half
-slab_lower_half:
-	.skip SMALL_PAGE
-
 .global init_physical_allocator_vector
 init_physical_allocator_vector:
 	.skip SMALL_PAGE
 
+.global _init_stack_top
 init_stack:
 	.skip (16 * KB)
 _init_stack_top:
@@ -51,56 +46,98 @@ _init_stack_top:
 .code32
 _start:
 	# Initialize stack pointer
-	movl $_init_stack_top, %esp
-
-	# Install kernel into TSS
-	movl %esp, TSS + 4
-	movl $0, TSS + 8
-
-	# Install TSS into GDT
-	movl $TSS, %ecx
-	movw %cx, GDT + TSS_SEG + 2
-	shrl $16, %ecx
-	movb %cl, GDT + TSS_SEG + 4
-	shrl $8, %ecx
-	movb %cl, GDT + TSS_SEG + 7
-	movl $0, GDT + TSS_SEG + 8
+	movl $virt_to_phys(_init_stack_top), %esp
 
 	# Multiboot information in various registers
 	pushl $0
 	pushl %ebx
 
-	movl $init_pl4, %edi
+	movl $virt_to_phys(init_pl4), %edi
 	movl %edi, %cr3
 
 	# Page map Level 4
-	movl $(init_pl3 + (PAGE_USER | PAGE_WRITE | PAGE_PRES)), init_pl4
+	movl $(virt_to_phys(init_pl3) + (PAGE_USER | PAGE_WRITE | PAGE_PRES)), virt_to_phys(init_pl4)
+	movl $(virt_to_phys(init_pl3) + (PAGE_USER | PAGE_WRITE | PAGE_PRES)), virt_to_phys(init_pl4) + 511 * 8
+
+	# Page map Level 3
+	movl $(virt_to_phys(init_pl2) + (PAGE_USER | PAGE_WRITE | PAGE_PRES)), virt_to_phys(init_pl3)
+	movl $(virt_to_phys(init_pl2) + (PAGE_USER | PAGE_WRITE | PAGE_PRES)), virt_to_phys(init_pl3) + 510 * 8
 
 	# Page directory pointer table
-	movl $(init_pl2 + (PAGE_USER | PAGE_WRITE | PAGE_PRES)), init_pl3
-
-	# Page directory
-	movl $(init_pl1_a + (PAGE_WRITE | PAGE_PRES)), init_pl2
-	movl $(init_pl1_b + (PAGE_WRITE | PAGE_PRES)), init_pl2 + 8
-
-	# Page table (identity map first 4 MiB, except NULL), insecure code
-	movl $(init_pl1_a + 8), %edi
-	movl $(0x1000 | PAGE_PRES | PAGE_WRITE), %esi
-	movl $1023, %ecx
-1:
-	movl %esi, (%edi)
-	addl $SMALL_PAGE, %esi
-	addl $8, %edi
-	loop 1b
+	movl $(virt_to_phys(init_pl1) + (PAGE_WRITE | PAGE_PRES)), virt_to_phys(init_pl2)
 
 	# Fractal mapping
-	movl $(init_pl4 + (PAGE_WRITE | PAGE_PRES)), init_pl4 + 511 * 8
-	movl $(frac_pl3 + (PAGE_WRITE | PAGE_PRES)), init_pl4 + 510 * 8
-	movl $(init_pl4 + (PAGE_WRITE | PAGE_PRES)), frac_pl3 + 511 * 8
-	movl $(frac_pl2 + (PAGE_WRITE | PAGE_PRES)), frac_pl3 + 510 * 8
-	movl $(init_pl4 + (PAGE_WRITE | PAGE_PRES)), frac_pl2 + 511 * 8
-	movl $(frac_pl1 + (PAGE_WRITE | PAGE_PRES)), frac_pl2 + 510 * 8
-	movl $(init_pl4 + (PAGE_WRITE | PAGE_PRES)), frac_pl1 + 511 * 8
+	movl $(virt_to_phys(init_pl4) + (PAGE_WRITE | PAGE_PRES)), virt_to_phys(init_pl4) + FRACTAL_PAGE_TABLE_INDEX * 8
+	movl $PAGE_EXEC_DISABLE_HIGH, virt_to_phys(init_pl4) + (FRACTAL_PAGE_TABLE_INDEX * 8) + 4
+
+	# Page table (identity map first 4 MiB, except NULL), insecure code
+	movl $(virt_to_phys(init_pl1) + 8), %edi
+	movl $(0x1000 | PAGE_PRES | PAGE_WRITE), %esi
+	movl $PAGE_EXEC_DISABLE_HIGH, %edx
+	movl $0xFF, %ecx
+1:
+	movl %esi, (%edi)
+	addl $4, %edi
+	movl %edx, (%edi)
+	addl $SMALL_PAGE, %esi
+	addl $4, %edi
+	loop 1b
+
+	# Map kernel text section
+	andl $MEM_WRITE_MASK, %esi
+	movl $0, %edx
+	movl $virt_to_phys(__text_end), %ecx
+	subl $virt_to_phys(__text_start), %ecx
+	shrl $12, %ecx
+1:
+	movl %esi, (%edi)
+	addl $4, %edi
+	movl %edx, (%edi)
+	addl $SMALL_PAGE, %esi
+	addl $4, %edi
+	loop 1b
+
+	# Map kernel data section
+	orl $MEM_WRITE, %esi
+	movl $PAGE_EXEC_DISABLE_HIGH, %edx
+	movl $virt_to_phys(__data_end), %ecx
+	subl $virt_to_phys(__data_start), %ecx
+	shrl $12, %ecx
+1:
+	movl %esi, (%edi)
+	addl $4, %edi
+	movl %edx, (%edi)
+	addl $SMALL_PAGE, %esi
+	addl $4, %edi
+	loop 1b
+
+	# Map kernel rodata section
+	andl $MEM_WRITE_MASK, %esi
+	movl $PAGE_EXEC_DISABLE_HIGH, %edx
+	movl $virt_to_phys(__rodata_end), %ecx
+	subl $virt_to_phys(__rodata_start), %ecx
+	shrl $12, %ecx
+1:
+	movl %esi, (%edi)
+	addl $4, %edi
+	movl %edx, (%edi)
+	addl $SMALL_PAGE, %esi
+	addl $4, %edi
+	loop 1b
+
+	# Map kernel bss section
+	orl $MEM_WRITE, %esi
+	movl $PAGE_EXEC_DISABLE_HIGH, %edx
+	movl $virt_to_phys(__bss_end), %ecx
+	subl $virt_to_phys(__bss_start), %ecx
+	shrl $12, %ecx
+1:
+	movl %esi, (%edi)
+	addl $4, %edi
+	movl %edx, (%edi)
+	addl $SMALL_PAGE, %esi
+	addl $4, %edi
+	loop 1b
 
 	# Enable PAE
 	movl %cr4, %eax
@@ -120,16 +157,10 @@ _start:
 
 paging:
 	# Load GDT register
-	subl $6, %esp
-	movw (GDT_SIZE - 1), %cx
-	movw %cx, 0(%esp)
-	movl $GDT, %ecx
-	movl %ecx, 2(%esp)
-	lgdt 0(%esp)
-	addl $6, %esp
+	lgdt virt_to_phys(PHYS_GDT_REG)
 
 	# Switch to 64-bit code seg
-	ljmp $CODE_SEG, $long_mode
+	ljmp $CODE_SEG, $virt_to_phys(long_mode)
 
 .code64
 long_mode:
@@ -138,17 +169,36 @@ long_mode:
 
 	# Load kernel data seg
 	movw $DATA_SEG, %cx
+	movw %cx, %ds
 	movw %cx, %es
 	movw %cx, %ss
+
+	# Install Kernel stack
+	mov $_init_stack_top, %rcx
+	mov %rcx, TSS + 4
+
+	# Finish installing TSS into GDT
+	mov $TSS, %rcx
+	movw %cx, GDT + TSS_SEG + 2
+	shr $16, %rcx
+	movb %cl, GDT + TSS_SEG + 4
+	shr $8, %rcx
+	movb %cl, GDT + TSS_SEG + 7
+	shr $8, %rcx
+	movl %ecx, GDT + TSS_SEG + 8
 
 	# Move TSS register to TSS
 	movw $(TSS_SEG | RPL), %cx
 	ltr %cx
 
-	# Switch to thread local fs, and gs
-	movw $(USER_DATA_SEG | RPL), %cx
-	movw %cx, %fs
-	movw %cx, %gs
+	# Move to higher half of kernel
+	add $KERN_START, %rsp
+	mov $higher_half, %rcx
+	jmp *%rcx
+
+higher_half:
+	# Gets GDT pointer
+	lgdt GDT_REG
 
 	# Multiboot information
 	pop %rdi
@@ -161,4 +211,4 @@ long_mode:
 halt:
 	cli
 	hlt
-	jmp halt
+	jmp halt 

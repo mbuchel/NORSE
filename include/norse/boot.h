@@ -23,7 +23,7 @@
 #define TSS_SEG			0x28
 #define RPL			0x3
 
-#define CR0_PAGING		0x80010000
+#define CR0_PAGING		0x80000000
 #define CR0_WRITE_PROTECT	0x00010000
 
 #define CR4_PAE			0x00000020
@@ -32,6 +32,7 @@
 #define PAGE_WRITE		(1 << 1)
 #define PAGE_USER		(1 << 2)
 #define PAGE_EXEC_DISABLE	(1 << 63)
+#define PAGE_EXEC_DISABLE_HIGH	(1 << 31)
 
 #define IA32_EFER_MSR		0xC0000080
 

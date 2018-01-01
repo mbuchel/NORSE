@@ -7,11 +7,12 @@ ARCH := x86_64
 
 # Kernel name
 KERNEL := bin/norse-$(NAME).elf
+DEBUG_SYM := bin/debug.sym
 
 # Special stuff
 DEFS := -DNAME="\"$(NAME)\"" -DVERSION="\"$(VERSION)\""
 WARN := -Wall -Wextra -Werror -Wno-missing-braces
-EXTR := -Og -ffreestanding -lgcc -g3
+EXTR := -Og -ffreestanding -lgcc -g3 -MP -MMD -mcmodel=kernel
 
 # Normal C stuff
 AS := $(PREFIX)-gcc
@@ -21,7 +22,7 @@ CC := $(PREFIX)-gcc
 CFLAGS := -std=gnu11 -c -I include/ -D __C__ $(DEFS) $(WARN) $(EXTR)
 
 LD := $(PREFIX)-gcc
-LDFLAGS := -nostdlib -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -Wl,--build-id=none $(WARN) $(EXTR)
+LDFLAGS := -N -nostdlib -mno-red-zone -mno-mmx -mno-sse -mno-sse2 -Wl,--build-id=none $(WARN) $(EXTR)
 
 ELF_COPY := objcopy
 ELF_FLAGS := -O elf32-i386
@@ -40,6 +41,11 @@ OBJS :=
 DIRS :=
 
 include src/Makefile
+
+debug: all
+	@$(ELF_COPY) --only-keep-debug $(KERNEL)64 $(DEBUG_SYM)
+	@$(ELF_COPY) --strip-debug $(KERNEL)64
+	@echo "Ready for debug"
 
 all: $(DIRS) $(KERNEL)
 

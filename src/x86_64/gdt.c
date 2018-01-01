@@ -1,3 +1,7 @@
+#include <norse/mem_size.h>
+#include <stdint.h>
+
+#include <norse/boot.h>
 #include <norse/types.h>
 
 /*
@@ -44,7 +48,38 @@ struct tss_entry {
 	uint64_t reserved2;
 	uint64_t reserved3;
 	uint16_t iomap_base;
-} pack;
+} __attribute__((packed));
+
+struct gdt_reg {
+	uint16_t limit;
+	uint64_t base;
+} __attribute__((packed));
+
+#define GRAN_64_BIT_MODE (1 << 5)
+#define GRAN_32_BIT_MODE (1 << 6)
+#define GRAN_4KIB_BLOCKS (1 << 7)
+
+#define gdt_entry(base, limit, access, granularity) \
+	{ \
+	(limit) & 0xffff, \
+	(uint16_t) ((base) >> 0  & 0xffff), \
+	(uint8_t)  ((base) >> 16 & 0xff), \
+	(access) & 0xff, \
+	((limit) >> 16 & 0x0f) | ((granularity) & 0xf0), \
+	(uint8_t) ((base) >> 24 & 0xff), \
+	}
+
+#define gdt_entry64(base, limit, access, granularity) \
+	{ \
+		(limit) & 0xffff, \
+		(uint16_t) ((base) >> 0  & 0xffff), \
+		(uint8_t)  ((base) >> 16 & 0xff), \
+		(access) & 0xff, \
+		((limit) >> 16 & 0x0f) | ((granularity) & 0xf0), \
+		(uint8_t) ((base) >> 24 & 0xff), \
+		(uint32_t) ((base) >> 32 & 0xffff) | ((base) >> 48 & 0xffff) << 16, \
+		0 \
+	} \
 
 // Would probably work if I set one to 0
 struct tss_entry TSS = {
@@ -59,38 +94,7 @@ struct tss_entry TSS = {
 	.iomap_base = 0
 };
 
-#define GRAN_64_BIT_MODE (1 << 5)
-#define GRAN_4KIB_BLOCKS (1 << 7)
-
-#define gdt_entry(base, limit, access, granularity) \
-	{ \
-		(limit) & 0xFFFF, \
-		(uint16_t) ((base) >> 0 & 0xFFFF), \
-		(uint8_t) ((base) >> 16 & 0xFF), \
-		(access) & 0xFF, \
-		((limit) >> 16 & 0x0F) | ((granularity) & 0xF0), \
-		(uint8_t) ((base) >> 24 & 0xFF) \
-	}
-
-#define gdt_entry64(base, limit, access, granularity) \
-	{ \
-		(limit) & 0xFFFF, \
-		(uint16_t) ((base) >> 0 & 0xFFFF), \
-		(uint8_t) ((base) >> 16 & 0xFF), \
-		(access) & 0xFF, \
-		((limit) >> 16 & 0x0F) | ((granularity) & 0xF0), \
-		(uint8_t) ((base) >> 24 & 0xFF) \
-	}, \
-	{ \
-		(uint16_t) ((base) >> 32 & 0xFFFF), \
-		(uint16_t) ((base) >> 48 & 0xFFFF), \
-		0, \
-		0, \
-		0, \
-		0 \
-	}
-
-struct gdt_entry GDT[] = {
+struct gdt_entry GDT[6] = {
 	// NULL
 	gdt_entry(0, 0, 0, 0),
 
@@ -107,7 +111,15 @@ struct gdt_entry GDT[] = {
 	gdt_entry(0, 0xFFFFFFFF, 0xF2, GRAN_64_BIT_MODE | GRAN_4KIB_BLOCKS),
 
 	// TSS
-	gdt_entry64(0ull, sizeof(TSS) - 1, 0xE9, 0x00)
+	gdt_entry(0ull, sizeof(TSS) - 1, 0xE9, 0x00)
 };
 
-uint16_t GDT_SIZE = sizeof(GDT) - 1;
+struct gdt_reg GDT_REG = {
+	.limit = sizeof(GDT) - 1,
+	.base = (uint64_t) &GDT
+};
+
+struct gdt_reg PHYS_GDT_REG = {
+	.limit = sizeof(GDT) - 1,
+	.base = virt_to_phys((uint64_t) &GDT)
+};
