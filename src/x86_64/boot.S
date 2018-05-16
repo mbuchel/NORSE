@@ -88,7 +88,6 @@ _start:
 	movl $0, %edx
 	movl $virt_to_phys(__text_end), %ecx
 	subl $virt_to_phys(__text_start), %ecx
-	shrl $12, %ecx
 1:
 	movl %esi, (%edi)
 	addl $4, %edi
@@ -102,21 +101,6 @@ _start:
 	movl $PAGE_EXEC_DISABLE_HIGH, %edx
 	movl $virt_to_phys(__data_end), %ecx
 	subl $virt_to_phys(__data_start), %ecx
-	shrl $12, %ecx
-1:
-	movl %esi, (%edi)
-	addl $4, %edi
-	movl %edx, (%edi)
-	addl $SMALL_PAGE, %esi
-	addl $4, %edi
-	loop 1b
-
-	# Map kernel rodata section
-	andl $MEM_WRITE_MASK, %esi
-	movl $PAGE_EXEC_DISABLE_HIGH, %edx
-	movl $virt_to_phys(__rodata_end), %ecx
-	subl $virt_to_phys(__rodata_start), %ecx
-	shrl $12, %ecx
 1:
 	movl %esi, (%edi)
 	addl $4, %edi
@@ -130,7 +114,6 @@ _start:
 	movl $PAGE_EXEC_DISABLE_HIGH, %edx
 	movl $virt_to_phys(__bss_end), %ecx
 	subl $virt_to_phys(__bss_start), %ecx
-	shrl $12, %ecx
 1:
 	movl %esi, (%edi)
 	addl $4, %edi

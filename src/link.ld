@@ -2,44 +2,44 @@ ENTRY(_start)
 
 SECTIONS
 {
-	. = 0xFFFFFFFF80000000;
+	. = 1M;
+
+	.bootstrap :
+	{
+		build/x86_64/boot.S.o (.text)
+	}
+
+	. += 0xFFFFFFFF80000000;
 
 	.text : AT(ADDR(.text) - 0xFFFFFFFF80000000) {
-		__kernel_start = .;
 		__text_start = .;
-		*(.text)
+		*(EXCLUDE_FILE(* build/x86_64/boot.S.o) .text)
 		*(.rodata*)
 		. = ALIGN(4096);
-	}
-
-	.text : AT(1M) {
-		__kernel_start = .;
-		__text_start = .;
-		*(.text)
-	}
-
-	.data BLOCK(4K) : ALIGN(4K) {
 		__text_end = .;
+	}
+
+	.data : AT(ADDR(.data) - 0xFFFFFFFF80000000) {
 		__data_start = .;
 		*(.data)
-		PROVIDE(kernel_symbol_table_start = .);
-		PROVIDE(kernel_symbol_table_end = .);
-	}
-
-	.rodata BLOCK(4K) : ALIGN(4K) {
+		. = ALIGN(4096);
 		__data_end = .;
-		__rodata_start = .;
-		*(.rodata)
 	}
 
-	.bss BLOCK(4K) : ALIGN(4K) {
+	/*
+	 * Do not see a need for eh_frame yet
+	.eh_frame : AT(ADDR(.eh_frame) - 0xFFFFFFFF80000000) {
+		_ehframe = .;
+		*(.eh_frame)
+		. = ALIGN(4096);
+	}
+	*/
+
+	.bss : AT(ADDR(.bss) - 0xFFFFFFFF80000000) {
 		__bss_start = .;
-		__rodata_end = .;
 		*(.bss)
 		*(.COMMON)
+		. = ALIGN(4096);
+		__bss_end = .;
 	}
-
-	. = ALIGN(4K);
-	__bss_end = .;
-	__kernel_end = .;
 }

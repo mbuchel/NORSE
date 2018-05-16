@@ -12,7 +12,7 @@ DEBUG_SYM := bin/debug.sym
 # Special stuff
 DEFS := -DNAME="\"$(NAME)\"" -DVERSION="\"$(VERSION)\""
 WARN := -Wall -Wextra -Werror -Wno-missing-braces
-EXTR := -Og -ffreestanding -lgcc -g3 -MP -MMD -mcmodel=kernel
+EXTR := -Og -ffreestanding -lgcc -g3 -MP -MMD -mcmodel=kernel -fno-asynchronous-unwind-tables
 
 # Normal C stuff
 AS := $(PREFIX)-gcc
@@ -63,14 +63,14 @@ build/%.c.o: src/%.c
 $(KERNEL): $(OBJS)
 	@echo "[LD] Linking Kernel: $(VERSION), Name: $(NAME)"
 	@$(LD) -T src/link.ld $(OBJS) $(LDFLAGS) -o $(KERNEL)64
+	@$(ELF_COPY) $(KERNEL)64 $(ELF_FLAGS) $(KERNEL)
 	@echo "Compiled Kernel Version: $(VERSION), Name: $(NAME)"
 
 iso: all
 	@$(CC) $(GENINITRD)/make_initrd.c -o $(GENINITRD)/make_initrd
 	@cd $(GENINITRD);./make_initrd $(GENINITRD_ARGS)
 	@cp $(GENINITRD)/$(INITRD) build/iso/boot
-	@$(ELF_COPY) $(KERNEL)64 $(ELF_FLAGS) $(KERNEL)32
-	@cp $(KERNEL)32 build/iso/boot/norse.elf
+	@cp $(KERNEL) build/iso/boot/norse.elf
 	@cp grub.cfg build/iso/boot/grub/grub.cfg
 	@cd build && $(GRUB_MKRESCUE) -o ../bin/norse-$(NAME).iso iso
 	@echo "Made iso file"

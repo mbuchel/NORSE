@@ -11,8 +11,8 @@ void kernel_main(void *multiboot __attribute__((unused)))
 {
 	init_interrupts();
 	file_system_init();
-	//vga_init();
-	//keyboard_init();
+	vga_init();
+	keyboard_init();
 
 	while (1);
 }
